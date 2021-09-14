@@ -1,10 +1,13 @@
 import requests
 from bs4 import BeautifulSoup, Tag, NavigableString
 import random
+import pandas as pd
 
 url = 'https://www.nhm.ac.uk/discover/dino-directory/name/name-az-all.html'
 
 meta_url = 'https://www.nhm.ac.uk' 
+
+html_list = []
 
 def get_keys_and_values(sentence, iterator, x, y):
     for i in sentence:
@@ -33,25 +36,28 @@ def get_keys_and_values(sentence, iterator, x, y):
             pass
         
 
-def get_all(url_1, url_2):
+def get_all(url_1, dino_html):
     
-    link_list = []
     req = requests.get(url_1).text
     soup = BeautifulSoup(req, 'html5lib')
     dinosaur_links = soup.find_all('li', {'dinosaurfilter--dinosaur dinosaurfilter--all-list'})
     
     for i in dinosaur_links:
-        link_list.append(i.a['href'])
+        html_list.append(i.a['href'])
         
-    req_f = requests.get(meta_url + link_list[59]).text
+get_all(url, html_list)      
+
+dino_info = {}   
+
+for i in html_list:
+        
+    req_f = requests.get(meta_url + i).text
     soup_f = BeautifulSoup(req_f, 'html5lib')
     
-    print(link_list[13])
     
     dino_name = soup_f.h1.text
     dino_pronunciation = soup_f.find('dd', {'class':'dinosaur--pronunciation'}).text
     dino_meaning = soup_f.find('dd', {'class': 'dinosaur--meaning'}).text
-    dino_info = {dino_name:None}
     dino_diet = soup_f.find('dl', {'class': 'dinosaur--info dinosaur--list'}).dd.text
     dino_when_it_lived = dino_diet = soup_f.find('dl', {'class': 'dinosaur--info dinosaur--list'}).dd.find_next('dd').text
     
@@ -68,21 +74,27 @@ def get_all(url_1, url_2):
 
     my_d = dict(zip(description_keys, description_values))
     dino_info.update({dino_name:my_d})
-    #print(dino_info)
     
     get_keys_and_values(test_2, 0, info_keys, info_values)
     
-    dino_i = {dino_name:None}
     my_c = dict(zip(info_keys, info_values))
-    dino_i.update({dino_name:my_c})
+    dino_info.update({dino_name:my_c})
     
-    print(dino_i)
-    
-    """
-    my_result = soup_f.find_all('div', {'class': 'dinosaur--container'})
+    if html_list.index(i) % 10 == 0:
+        print(dino_name, str(html_list.index(i)) + '/' + str(len(html_list)))
+    elif html_list.index(i) == len(html_list) - 1:
+        print('Completed.')
+    else:
+        pass
+df = pd.DataFrame.from_dict(dino_info, orient='index')
+df.drop(['teeth', 'food', 'how_it_moved'], axis = 1, inplace=True)
+df.dropna(inplace=True)
+df = df.reset_index().rename(columns={'index': 'name'})
+for i, k in df.iterrows():
+    if isinstance(k['when_it_lived'], list) == False:
+        df.drop(i, inplace=True)
+df_t = pd.DataFrame(df['when_it_lived'].to_list(), columns=['epoch', 'years ago'])
+result = pd.concat([df, df_t], axis=1)
+result.drop('when_it_lived', axis=1, inplace=True)
 
-    for x in my_result[0]:
-        print(x)
-        print('----')
-    """
-get_all(url, meta_url)    
+print(result.head())        
